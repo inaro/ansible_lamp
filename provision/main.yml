@@ -1,3 +1,6 @@
+- include: system.yml
 - include: apache.yml
 - include: mysql.yml
 - include: php70.yml
+- include: composer.yml
+- include: cake3.yml

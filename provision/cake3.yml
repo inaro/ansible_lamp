@@ -1,0 +1,16 @@
+---
+- name: CakePHP 3.* install
+  hosts: all
+  become: true
+  tasks:
+    - name: Create www directory to contain CakePHP code
+      command: mkdir -p /srv/httpd
+      args:
+        creates: /srv/httpd
+
+    - name: create new project
+      composer:
+        command: create-project
+        arguments: cakephp/cakephp /srv/httpd ~3.0
+        working_dir: /srv/httpd
+        prefer_dist: yes

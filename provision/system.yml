@@ -1,0 +1,12 @@
+---
+- name: installs
+  hosts: all
+  become: true
+  tasks:
+    - name: git,unzip
+      yum:
+        state: present
+        name: "{{ item }}"
+      with_items:
+        - git
+        - unzip

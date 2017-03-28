@@ -3,33 +3,51 @@
   hosts: all
   become: true
   tasks:
-    - name: add Epel
-      yum:
-        name: epel-release
-        state: present
+    - name: check PHP
+      stat:
+        path: /etc/php.d
+      register: php70_enable
 
-    - name: add remi
-      yum:
-        state: present
-        name: http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+    - block:
+      - name: add Epel
+        yum:
+          name: epel-release
+          state: present
 
-    - name: install php7.0
-      yum:
-        name: "{{ item }}"
-        enablerepo: epel,remi,remi-php70
-        state: present
-      with_items:
-        - php70
-        - php70-php-devel
-        - php70-php-mbstring
-        - php70-php-xml
-        - php70-php-mysqlnd
-        - php70-php-gd
-        - php70-php-json
-        - php70-php-pdo
+      - name: add remi
+        yum:
+          state: present
+          name: http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
 
-    - name : link env file
-      file:
-        state: link
-        src: /opt/remi/php70/enable
-        dest: /etc/profile.d/php70.sh
+      - name: install php7.0
+        yum:
+          name: "{{ item }}"
+          enablerepo: epel,remi,remi-php70
+          state: present
+        with_items:
+          - php70
+          - php70-php-devel
+          - php70-php-mbstring
+          - php70-php-xml
+          - php70-php-mysqlnd
+          - php70-php-gd
+          - php70-php-json
+          - php70-php-pdo
+          - php70-php-intl
+
+      - name: set PHP path and move PHP config files
+        shell: |
+          ln -sfF /opt/remi/php70/enable /etc/profile.d/php70-paths.sh
+          ln -sfF /opt/remi/php70/root/usr/bin/{phar,php,php-cgi,php-config,phpize} /usr/local/bin/.
+          mv -f /etc/opt/remi/php70/php.ini /etc/php.ini
+          ln -s /etc/php.ini /etc/opt/remi/php70/php.ini
+          mv /etc/opt/remi/php70/php.d /etc/.
+          ln -s /etc/php.d /etc/opt/remi/php70/php.d
+          ln -s /usr/bin/php70 /usr/bin/php
+
+      - name: restart httpd
+        service:
+          name: httpd
+          state: restarted
+
+      when: not php70_enable.stat.exists
