@@ -1,0 +1,100 @@
+---
+# README
+# http://weblabo.oscasierra.net/mysql-56-init-setup/
+
+- name: mysql install
+  hosts: all
+  become: true
+  tasks:
+    - name: remove mariadb-libs
+      yum:
+        state: absent
+        name: mariadb-libs
+
+    - name: install mysql repository
+      yum:
+        state: present
+        name: http://dev.mysql.com/get/mysql57-community-release-el6-7.noarch.rpm
+        validate_certs: yes
+
+    - name: install yum-utils, mysql-python, mysql-community-server
+      yum:
+        state: present
+        name: "{{ item }}"
+      with_items:
+        - yum-utils
+        - MySQL-python
+        - mysql-community-server
+
+    - name: running and enabled mysqld
+      service:
+        name: mysqld
+        state: started
+        enabled: yes
+
+    - name: check .my.cnf exists
+      stat:
+        path: /root/.my.cnf
+      register: mycnf_file
+
+    - name: get temporary password
+      shell: cat /var/log/mysqld.log | grep "temporary password" | awk '{print $11}'
+      register: mysql_default_password
+      when: not mycnf_file.stat.exists
+
+    - name: deploy init .my.cnf
+      template:
+        src: templates/init_my.cnf.j2
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+        mode: 0644
+      when: not mycnf_file.stat.exists
+
+    - name: change password validation to the easy way
+      shell: |
+        mysql -u root -p'{{ mysql_default_password.stdout }}' --connect-expired-password -e "SET GLOBAL validate_password_length=4;"
+        mysql -u root -p'{{ mysql_default_password.stdout }}' --connect-expired-password -e "SET GLOBAL validate_password_policy=LOW;"
+      when: not mycnf_file.stat.exists
+
+    - name: change root user password
+      shell: |
+        mysql -u root -p'{{ mysql_default_password.stdout }}' --connect-expired-password -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'root';"
+      when: not mycnf_file.stat.exists
+
+    - name: deploy changed .my.cnf
+      template:
+        src: templates/my.cnf.j2
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: deploy changed .my.cnf
+      template:
+        src: templates/my.cnf.j2
+        dest: /etc/my.cnf
+
+    - name: remove all anonymous user
+      mysql_user:
+        name: ''
+        state: absent
+        host: localhost
+
+    - name: create database
+      mysql_db:
+        name: ansible_test
+        state: present
+        encoding: utf8mb4
+
+    - name: create user
+      mysql_user:
+        name: vagrant
+        password: vagrant
+        priv: '*.*:ALL,GRANT'
+        state: present
+
+    - name: restart mysqld
+      service:
+        name: mysqld
+        state: restarted

@@ -1,0 +1,35 @@
+---
+- name: PHP7.0 install
+  hosts: all
+  become: true
+  tasks:
+    - name: add Epel
+      yum:
+        name: epel-release
+        state: present
+
+    - name: add remi
+      yum:
+        state: present
+        name: http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+
+    - name: install php7.0
+      yum:
+        name: "{{ item }}"
+        enablerepo: epel,remi,remi-php70
+        state: present
+      with_items:
+        - php70
+        - php70-php-devel
+        - php70-php-mbstring
+        - php70-php-xml
+        - php70-php-mysqlnd
+        - php70-php-gd
+        - php70-php-json
+        - php70-php-pdo
+
+    - name : link env file
+      file:
+        state: link
+        src: /opt/remi/php70/enable
+        dest: /etc/profile.d/php70.sh
